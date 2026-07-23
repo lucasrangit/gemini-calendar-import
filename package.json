@@ -1,0 +1,15 @@
+{
+  "name": "gemini-gem-calendar-import",
+  "version": "1.0.0",
+  "description": "A reliable, intelligent Google Apps Script Web App for importing events from webpages or text into Google Calendar, utilizing the Gemini API.",
+  "scripts": {
+    "login": "clasp login",
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "deploy": "clasp deploy",
+    "open": "clasp open"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}
