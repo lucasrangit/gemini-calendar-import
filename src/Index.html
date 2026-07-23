@@ -5,8 +5,6 @@
   <!-- Link the legacy Google Apps Script stylesheet -->
   <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
   <style>
-    /* Auxiliary CSS to supplement add-ons1.css for custom structures (like events list, tabs, alerts) 
-       while strictly maintaining the clean, light-themed Google Calendar sidebar UX. */
     body {
       background-color: #ffffff;
       padding: 0;
@@ -50,6 +48,32 @@
       color: #666;
       margin-bottom: 12px;
       line-height: 1.3;
+    }
+
+    /* Standard Card Styling */
+    .card {
+      background-color: #ffffff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 3px rgba(60,64,67,0.08);
+    }
+    
+    .section-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a73e8;
+      border-bottom: 1px dashed #dadce0;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .width-100 {
+      width: 100% !important;
+      box-sizing: border-box;
     }
 
     /* Google-style tab switcher */
@@ -107,31 +131,6 @@
       color: #1c3d5a;
     }
 
-    /* Event occurrences container */
-    .event-item {
-      background-color: #f8f9fa;
-      border: 1px solid #dadce0;
-      border-radius: 6px;
-      padding: 10px;
-      margin-bottom: 12px;
-    }
-
-    .event-item-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      border-bottom: 1px solid #dadce0;
-      padding-bottom: 4px;
-    }
-
-    .event-item-title {
-      font-weight: bold;
-      font-size: 11px;
-      text-transform: uppercase;
-      color: #5f6368;
-    }
-
     .delete-link {
       color: #d93025;
       text-decoration: none;
@@ -143,10 +142,16 @@
       text-decoration: underline;
     }
 
-    /* Spacing & grid alignment utilities */
+    /* Layout grids */
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
       gap: 8px;
     }
 
@@ -211,8 +216,18 @@
     <!-- Error/Warning Messages -->
     <div id="errorMessage" class="alert-box alert-box-error hidden"></div>
 
+    <!-- Calendar Selector Card (Available up-front) -->
+    <div class="card" id="calendarCard">
+      <div class="section-header">Destination Calendar</div>
+      <div class="block form-group mb-0">
+        <label for="calendarSelect">Target Calendar</label>
+        <select id="calendarSelect" class="width-100"></select>
+      </div>
+    </div>
+
     <!-- Source Input Card -->
-    <div id="inputView">
+    <div id="inputView" class="card">
+      <div class="section-header">Import Event Source</div>
       <div class="tabs">
         <div class="tab active" onclick="switchTab('url')">URL Link</div>
         <div class="tab" onclick="switchTab('text')">Raw Text</div>
@@ -228,8 +243,8 @@
         <textarea id="eventText" class="width-100" style="height: 140px;" placeholder="Copy and paste event page contents here..."></textarea>
       </div>
 
-      <div class="block">
-        <button class="action" id="btnParse" onclick="onParseClick()">
+      <div class="block mb-0">
+        <button class="action width-100" id="btnParse" onclick="onParseClick()">
           <span class="loader hidden" id="parseLoader"></span>
           Analyze Content
         </button>
@@ -239,16 +254,10 @@
     <!-- Interactive Edit / Confirmation Panel -->
     <div class="hidden" id="previewView">
       <h2>Verify Calendar Details</h2>
-      
-      <!-- Calendar Destination Selector -->
-      <div class="block form-group">
-        <label for="calendarSelect">Destination Calendar</label>
-        <select id="calendarSelect" class="width-100"></select>
-      </div>
 
       <!-- Common Event Details Editor -->
-      <div class="event-item" style="background-color: #ffffff; border: 1px solid #dadce0;">
-        <h3 style="color: #1a73e8; border-bottom: 1px dashed #dadce0; padding-bottom: 4px; margin-bottom: 8px;">Common Event Details</h3>
+      <div class="card">
+        <div class="section-header">Common Event Details</div>
         
         <div class="block form-group">
           <label for="commonTitle">Event Title</label>
@@ -257,7 +266,10 @@
         
         <div class="block form-group">
           <label for="commonLocation">Location</label>
-          <input type="text" id="commonLocation" class="width-100" />
+          <input type="text" id="commonLocation" class="width-100" placeholder="e.g. Alexanderplatz 1, Berlin" oninput="updateMapPreview(this.value)" />
+          <div id="mapPreviewContainer" class="hidden mt-12" style="border-radius: 6px; overflow: hidden; border: 1px solid #dadce0;">
+            <iframe id="mapIframe" width="100%" height="180" frameborder="0" style="border:0;" allowfullscreen="" src="about:blank"></iframe>
+          </div>
         </div>
         
         <div class="block form-group mb-0">
@@ -267,34 +279,34 @@
       </div>
 
       <!-- Event Occurrences List -->
-      <div class="block">
-        <h3 style="margin-bottom: 8px;">Date & Time Occurrences</h3>
+      <div class="card">
+        <div class="section-header">Date & Time Occurrences</div>
         <div id="occurrencesContainer"></div>
-        <button type="button" style="margin-top: 4px;" onclick="addBlankOccurrence()">+ Add Occurrence</button>
+        <button type="button" class="width-100" style="margin-top: 6px;" onclick="addBlankOccurrence()">+ Add Occurrence</button>
       </div>
 
       <!-- Global Registration Reminder Config -->
-      <div id="registrationReminderSection" class="event-item hidden">
-        <h3 style="color: #1a73e8; border-bottom: 1px dashed #dadce0; padding-bottom: 4px; margin-bottom: 8px;">Ticket Booking Reminder</h3>
+      <div id="registrationReminderSection" class="card hidden">
+        <div class="section-header">Ticket Booking Reminder</div>
         
         <div class="block form-group">
-          <label>Registration Opens (Date & Time)</label>
-          <input type="text" id="regOpenDateTime" class="width-100" placeholder="YYYY-MM-DDTHH:MM:SS" />
+          <label for="regOpenDateTime">Registration Opens (Date & Time)</label>
+          <input type="text" id="regOpenDateTime" class="width-100" placeholder="YYYY-MM-DDTHH:MM" />
         </div>
         
         <div class="block form-group">
-          <label>Registration / Ticket Link</label>
+          <label for="regLink">Registration / Ticket Link</label>
           <input type="text" id="regLink" class="width-100" placeholder="https://..." />
         </div>
         
         <div class="block form-group mb-0">
-          <label>Requirements</label>
+          <label for="regRequirements">Requirements</label>
           <input type="text" id="regRequirements" class="width-100" placeholder="e.g. RSVP mandatory, Free admission" />
         </div>
       </div>
 
       <!-- Warnings and Assumptions lists -->
-      <div class="block" style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">
+      <div class="card" style="padding: 10px 14px;">
         <div id="missingFieldsBlock" class="hidden">
           <label style="color:#a8071a; font-weight:bold;">Missing Information</label>
           <ul id="missingFieldsList" style="margin: 4px 0 10px 16px; padding:0; color:#666; font-size:11px;"></ul>
@@ -322,10 +334,10 @@
         <p id="successMessage" style="margin: 4px 0 0 0;"></p>
       </div>
       
-      <div id="createdEventsList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+      <div id="createdEventsList" style="display: flex; flex-direction: column; gap: 6px;"></div>
       
       <div class="block mt-12">
-        <button class="action" onclick="startNewImport()">Import New Event</button>
+        <button class="action width-100" onclick="startNewImport()">Import New Event</button>
       </div>
     </div>
 
@@ -385,7 +397,6 @@
       }
     }
 
-    // Adjust scroll behavior to work with fluid body instead of absolute sidebar
     function scrollToTop() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -425,7 +436,6 @@
       var select = document.getElementById('calendarSelect');
       select.innerHTML = '';
       
-      // Target settings from the original Gem config
       var targetName = 'Berlin Events';
       var targetId = 'c060eb28aba7b470247720172698de5db4429ee801628553bf96547a4eec17f6@group.calendar.google.com';
       
@@ -450,6 +460,55 @@
         opt.text = 'Berlin Events (Custom Calendar ID)';
         select.insertBefore(opt, select.firstChild);
         select.value = targetId;
+      }
+    }
+
+    function updateMapPreview(address) {
+      var container = document.getElementById('mapPreviewContainer');
+      var iframe = document.getElementById('mapIframe');
+      var cleanAddr = (address || '').trim();
+      if (cleanAddr) {
+        iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(cleanAddr) + '&z=13&output=embed';
+        container.classList.remove('hidden');
+      } else {
+        iframe.src = 'about:blank';
+        container.classList.add('hidden');
+      }
+    }
+
+    function generate30MinOptions(selectedValue) {
+      var options = '<option value="">-- Preset --</option>';
+      var cleanSel = (selectedValue || '').substring(0, 5);
+      for (var h = 0; h < 24; h++) {
+        for (var m = 0; m < 60; m += 30) {
+          var hh = (h < 10 ? '0' : '') + h;
+          var mm = (m === 0 ? '00' : '30');
+          var val = hh + ':' + mm;
+          var isSelected = (val === cleanSel) ? 'selected' : '';
+          options += '<option value="' + val + '" ' + isSelected + '>' + val + '</option>';
+        }
+      }
+      return options;
+    }
+
+    function syncTimeInput(selectEl) {
+      if (selectEl.value) {
+        var parent = selectEl.parentElement;
+        var inputEl = parent.querySelector('input');
+        if (inputEl) inputEl.value = selectEl.value;
+      }
+    }
+
+    function syncTimeSelect(inputEl) {
+      var parent = inputEl.parentElement;
+      var selectEl = parent.querySelector('select');
+      if (selectEl) {
+        var val = inputEl.value.trim();
+        if (val.length === 5 && selectEl.querySelector('option[value="' + val + '"]')) {
+          selectEl.value = val;
+        } else {
+          selectEl.value = '';
+        }
       }
     }
 
@@ -502,25 +561,26 @@
         return;
       }
 
-      // Populate common details using the first event as source
       var firstEvent = data.events[0];
       document.getElementById('commonTitle').value = firstEvent.title || '';
       document.getElementById('commonLocation').value = firstEvent.location || '';
+      updateMapPreview(firstEvent.location || '');
       document.getElementById('commonDescription').value = firstEvent.description || '';
 
-      // Populate occurrences list
       var container = document.getElementById('occurrencesContainer');
       container.innerHTML = '';
 
       data.events.forEach(function(ev) {
-        addOccurrenceRow(ev.startDate || '', ev.startTime || '', ev.endDate || '', ev.endTime || '');
+        var dateVal = ev.date || ev.startDate || '';
+        var startTimeVal = (ev.startTime || '').substring(0, 5);
+        var endTimeVal = (ev.endTime || '').substring(0, 5);
+        addOccurrenceRow(dateVal, startTimeVal, endTimeVal);
       });
       reindexOccurrences();
 
-      // Handle Global Registration Booking details
       if (data.registrationOpenDateTime) {
         document.getElementById('registrationReminderSection').classList.remove('hidden');
-        document.getElementById('regOpenDateTime').value = data.registrationOpenDateTime;
+        document.getElementById('regOpenDateTime').value = (data.registrationOpenDateTime || '').substring(0, 16);
         document.getElementById('regLink').value = data.registrationLink || '';
         document.getElementById('regRequirements').value = data.registrationRequirements || '';
       } else {
@@ -530,7 +590,6 @@
         document.getElementById('regRequirements').value = '';
       }
 
-      // Display warnings/assumptions
       toggleMetaList('missingFields', data.missingFields);
       toggleMetaList('assumptions', data.assumptions);
 
@@ -539,37 +598,40 @@
       scrollToTop();
     }
 
-    function addOccurrenceRow(startDate, startTime, endDate, endTime) {
+    function addOccurrenceRow(dateVal, startTimeVal, endTimeVal) {
       var container = document.getElementById('occurrencesContainer');
       var row = document.createElement('div');
-      row.className = 'event-item occurrence-row';
-      row.style.padding = '8px';
-      row.style.marginBottom = '8px';
-      row.style.backgroundColor = '#f8f9fa';
+      row.className = 'event-item occurrence-row card';
+      row.style.padding = '10px';
+      row.style.marginBottom = '10px';
+
+      var cleanDate = (dateVal || '').substring(0, 10);
+      var cleanStart = (startTimeVal || '').substring(0, 5);
+      var cleanEnd = (endTimeVal || '').substring(0, 5);
 
       row.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span style="font-size: 11px; font-weight: bold; color: #5f6368;" class="occurrence-number">Occurrence</span>
-          <a class="delete-link" onclick="this.parentElement.parentElement.remove(); reindexOccurrences();">Remove</a>
+          <a class="delete-link" onclick="this.closest('.occurrence-row').remove(); reindexOccurrences();">Remove</a>
         </div>
-        <div class="grid-2">
+        <div class="grid-3">
           <div class="block form-group mb-0">
-            <label style="font-size: 10px;">Start Date</label>
-            <input type="text" class="ev-sdate width-100" value="${escapeHtml(startDate)}" placeholder="YYYY-MM-DD" style="padding: 4px 6px; font-size: 12px;" />
+            <label style="font-size: 10px; font-weight: bold;">Date</label>
+            <input type="date" class="ev-date width-100" value="${escapeHtml(cleanDate)}" style="padding: 4px 6px; font-size: 12px;" />
           </div>
           <div class="block form-group mb-0">
-            <label style="font-size: 10px;">Start Time (24h)</label>
-            <input type="text" class="ev-stime width-100" value="${escapeHtml(startTime)}" placeholder="HH:MM:SS" style="padding: 4px 6px; font-size: 12px;" />
-          </div>
-        </div>
-        <div class="grid-2" style="margin-top: 4px;">
-          <div class="block form-group mb-0">
-            <label style="font-size: 10px;">End Date</label>
-            <input type="text" class="ev-edate width-100" value="${escapeHtml(endDate)}" placeholder="YYYY-MM-DD" style="padding: 4px 6px; font-size: 12px;" />
+            <label style="font-size: 10px; font-weight: bold;">Start Time</label>
+            <input type="text" class="ev-stime width-100" value="${escapeHtml(cleanStart)}" placeholder="12:00" maxlength="5" style="padding: 4px 6px; font-size: 12px;" oninput="syncTimeSelect(this)" />
+            <select class="ev-stime-select width-100" style="margin-top: 4px; padding: 2px; font-size: 11px;" onchange="syncTimeInput(this)">
+              ${generate30MinOptions(cleanStart)}
+            </select>
           </div>
           <div class="block form-group mb-0">
-            <label style="font-size: 10px;">End Time (24h)</label>
-            <input type="text" class="ev-etime width-100" value="${escapeHtml(endTime)}" placeholder="HH:MM:SS" style="padding: 4px 6px; font-size: 12px;" />
+            <label style="font-size: 10px; font-weight: bold;">End Time</label>
+            <input type="text" class="ev-etime width-100" value="${escapeHtml(cleanEnd)}" placeholder="13:00" maxlength="5" style="padding: 4px 6px; font-size: 12px;" oninput="syncTimeSelect(this)" />
+            <select class="ev-etime-select width-100" style="margin-top: 4px; padding: 2px; font-size: 11px;" onchange="syncTimeInput(this)">
+              ${generate30MinOptions(cleanEnd)}
+            </select>
           </div>
         </div>
       `;
@@ -578,7 +640,7 @@
 
     function addBlankOccurrence() {
       var today = new Date().toISOString().split('T')[0];
-      addOccurrenceRow(today, '12:00:00', today, '13:00:00');
+      addOccurrenceRow(today, '12:00', '13:00');
       reindexOccurrences();
     }
 
@@ -635,12 +697,11 @@
       var validationError = false;
 
       occurrenceRows.forEach(function(row) {
-        var sDate = row.querySelector('.ev-sdate').value.trim();
+        var dateVal = row.querySelector('.ev-date').value.trim();
         var sTime = row.querySelector('.ev-stime').value.trim();
-        var eDate = row.querySelector('.ev-edate').value.trim();
         var eTime = row.querySelector('.ev-etime').value.trim();
         
-        if (!sDate || !sTime || !eDate || !eTime) {
+        if (!dateVal || !sTime || !eTime) {
           validationError = true;
         }
 
@@ -648,15 +709,14 @@
           title: commonTitle,
           location: commonLoc,
           description: commonDesc,
-          startDate: sDate,
+          date: dateVal,
           startTime: sTime,
-          endDate: eDate,
           endTime: eTime
         });
       });
 
       if (validationError) {
-        return showError("All fields (Dates and Times) are required for all event occurrences.");
+        return showError("All fields (Date, Start Time, and End Time) are required for all event occurrences.");
       }
 
       var regOpen = document.getElementById('regOpenDateTime').value.trim();
@@ -698,6 +758,7 @@
     function showSuccess(result) {
       document.getElementById('inputView').classList.add('hidden');
       document.getElementById('previewView').classList.add('hidden');
+      document.getElementById('calendarCard').classList.add('hidden');
       
       var msg = `Added ${result.createdCount} event(s) to the calendar.`;
       if (result.bookingCreated) {
@@ -710,18 +771,22 @@
       evList.innerHTML = '';
       result.events.forEach(function(ev) {
         var row = document.createElement('div');
-        row.style.background = '#f1f3f4';
+        row.style.background = '#f8f9fa';
         row.style.border = '1px solid #dadce0';
-        row.style.padding = '6px 8px';
-        row.style.borderRadius = '4px';
+        row.style.padding = '8px 12px';
+        row.style.borderRadius = '6px';
         row.style.fontSize = '12px';
-        row.style.marginBottom = '4px';
+        row.style.marginBottom = '6px';
         row.style.display = 'flex';
         row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        
+        var displayTime = (ev.startTime || '').substring(0, 5);
+        var linkHref = ev.url || '#';
         
         row.innerHTML = `
-          <span>📅 <strong>${escapeHtml(ev.title)}</strong> (${ev.startDate} ${ev.startTime})</span>
-          <span style="color: #137333; font-weight: bold;">Saved</span>
+          <a href="${linkHref}" target="_blank" style="color: #1a73e8; text-decoration: underline; font-weight: bold;">📅 ${escapeHtml(ev.title)} (${ev.date || ev.startDate} ${displayTime}) &raquo;</a>
+          <span style="color: #137333; font-weight: bold; font-size: 11px;">Saved</span>
         `;
         evList.appendChild(row);
       });
@@ -759,14 +824,15 @@
     }
 
     function generateGoogleCalendarUrl(ev) {
-      var title = encodeURIComponent(ev.title);
-      var desc = encodeURIComponent(ev.description);
-      var loc = encodeURIComponent(ev.location);
-      var startClean = ev.startDate.replace(/-/g, '') + 'T' + ev.startTime.replace(/:/g, '');
-      var endClean = ev.endDate.replace(/-/g, '') + 'T' + ev.endTime.replace(/:/g, '');
+      var title = encodeURIComponent(ev.title || '');
+      var desc = encodeURIComponent(ev.description || '');
+      var loc = encodeURIComponent(ev.location || '');
+      var dateVal = (ev.date || ev.startDate || '').replace(/-/g, '');
+      var sTime = (ev.startTime || '12:00').substring(0, 5).replace(/:/g, '') + '00';
+      var eTime = (ev.endTime || '13:00').substring(0, 5).replace(/:/g, '') + '00';
       
       return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + title + 
-             "&dates=" + startClean + "/" + endClean + 
+             "&dates=" + dateVal + "T" + sTime + "/" + dateVal + "T" + eTime + 
              "&ctz=Europe/Berlin" +
              "&details=" + desc + 
              "&location=" + loc;
@@ -778,15 +844,16 @@
 
       var icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Berlin Events Importer//EN\r\n";
       events.forEach(function(ev) {
-        var startClean = ev.startDate.replace(/-/g, '') + 'T' + ev.startTime.replace(/:/g, '');
-        var endClean = ev.endDate.replace(/-/g, '') + 'T' + ev.endTime.replace(/:/g, '');
+        var dateVal = (ev.date || ev.startDate || '').replace(/-/g, '');
+        var sTime = (ev.startTime || '12:00').substring(0, 5).replace(/:/g, '') + '00';
+        var eTime = (ev.endTime || '13:00').substring(0, 5).replace(/:/g, '') + '00';
         
         icsContent += "BEGIN:VEVENT\r\n";
-        icsContent += "SUMMARY:" + ev.title.replace(/,/g, '\\,') + "\r\n";
-        icsContent += "DESCRIPTION:" + ev.description.replace(/\n/g, '\\n').replace(/,/g, '\\,') + "\r\n";
-        icsContent += "LOCATION:" + ev.location.replace(/,/g, '\\,') + "\r\n";
-        icsContent += "DTSTART;TZID=Europe/Berlin:" + startClean + "\r\n";
-        icsContent += "DTEND;TZID=Europe/Berlin:" + endClean + "\r\n";
+        icsContent += "SUMMARY:" + (ev.title || '').replace(/,/g, '\\,') + "\r\n";
+        icsContent += "DESCRIPTION:" + (ev.description || '').replace(/\n/g, '\\n').replace(/,/g, '\\,') + "\r\n";
+        icsContent += "LOCATION:" + (ev.location || '').replace(/,/g, '\\,') + "\r\n";
+        icsContent += "DTSTART;TZID=Europe/Berlin:" + dateVal + "T" + sTime + "\r\n";
+        icsContent += "DTEND;TZID=Europe/Berlin:" + dateVal + "T" + eTime + "\r\n";
         icsContent += "END:VEVENT\r\n";
       });
       icsContent += "END:VCALENDAR\r\n";
@@ -794,7 +861,7 @@
       var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
       var link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
-      var filename = (events[0].title || 'imported_events').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      var filename = ((events[0] && events[0].title) || 'imported_events').replace(/[^a-z0-9]/gi, '_').toLowerCase();
       link.setAttribute('download', filename + '.ics');
       document.body.appendChild(link);
       link.click();
@@ -802,6 +869,7 @@
     }
 
     function startNewImport() {
+      document.getElementById('calendarCard').classList.remove('hidden');
       document.getElementById('inputView').classList.remove('hidden');
       document.getElementById('previewView').classList.add('hidden');
       document.getElementById('successView').classList.add('hidden');

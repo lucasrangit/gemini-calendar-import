@@ -99,11 +99,11 @@ function parseEventText(textOrUrl) {
       "Translate all extracted details into English if the source is in another language (e.g. German).\n\n" +
       "RULES:\n" +
       "1. Date & Time: Always assume and label times in Berlin local time (Europe/Berlin, CET/CEST) unless otherwise stated.\n" +
-      "2. Time Formats: Output dates as 'YYYY-MM-DD' and times as 24-hour format 'HH:MM:SS'.\n" +
-      "3. Default Times: If no times are specified, set startDate and endDate. For time fields, default missing start times to '12:00:00' and end times to '13:00:00', and record this under assumptions.\n" +
+      "2. Time Formats: Output dates as 'YYYY-MM-DD' and times as 24-hour format 'HH:MM' (without seconds precision).\n" +
+      "3. Default Times: If no times are specified, set date. For time fields, default missing start times to '12:00' and end times to '13:00', and record this under assumptions.\n" +
       "4. Multiple Consecutive Days: If the event spans multiple consecutive days (e.g. a workshop from June 2 to June 4), output a separate event object in the 'events' array for each day (e.g. one for June 2, one for June 3, one for June 4). IMPORTANT: Each occurrence's description must contain the FULL event details and URLs; do not truncate, abbreviate, or write 'same as day 1'.\n" +
       "5. Recurring Events: If the event repeats (e.g. every Tuesday), output the next 5 occurrences, calculating the dates starting from the current date (Wednesday, July 15, 2026). If the repeating event specifies an end date, do not output occurrences past that end date. Ensure each repeating occurrence contains the identical, full description.\n" +
-      "6. Registration & Booking: Extract any registration opening times ('registrationOpenDateTime' in format YYYY-MM-DDTHH:MM:SS), registration links, or requirements. This will be used to create booking reminders.\n" +
+      "6. Registration & Booking: Extract any registration opening times ('registrationOpenDateTime' in format YYYY-MM-DDTHH:MM), registration links, or requirements. This will be used to create booking reminders.\n" +
       "7. No Event Found: If the text contains no calendar event details, return a JSON containing an 'error' field detailing what was missing.\n\n" +
       "Return ONLY a valid JSON object matching the following structure:\n" +
       "{\n" +
@@ -112,14 +112,13 @@ function parseEventText(textOrUrl) {
       "      \"title\": \"Event Title\",\n" +
       "      \"description\": \"Detailed comprehensive description including all links and URLs, fully populated for every occurrence\",\n" +
       "      \"location\": \"Full Address or Link\",\n" +
-      "      \"startDate\": \"YYYY-MM-DD\",\n" +
-      "      \"startTime\": \"HH:MM:SS\",\n" +
-      "      \"endDate\": \"YYYY-MM-DD\",\n" +
-      "      \"endTime\": \"HH:MM:SS\",\n" +
+      "      \"date\": \"YYYY-MM-DD\",\n" +
+      "      \"startTime\": \"HH:MM\",\n" +
+      "      \"endTime\": \"HH:MM\",\n" +
       "      \"timezone\": \"Europe/Berlin\"\n" +
       "    }\n" +
       "  ],\n" +
-      "  \"registrationOpenDateTime\": \"YYYY-MM-DDTHH:MM:SS\" (or null),\n" +
+      "  \"registrationOpenDateTime\": \"YYYY-MM-DDTHH:MM\" (or null),\n" +
       "  \"registrationLink\": \"URL\" (or null),\n" +
       "  \"registrationRequirements\": \"Brief requirements details\" (or null),\n" +
       "  \"missingFields\": [\"list of missing information\"],\n" +
@@ -225,6 +224,17 @@ function cleanHtml(html) {
 }
 
 /**
+ * Generates a clickable Google Calendar event URL using Base64 eid encoding.
+ */
+function getCalendarEventUrl(rawEventId, rawCalendarId) {
+  if (!rawEventId) return '';
+  var cleanEventId = rawEventId.replace(/@google\.com$/g, '');
+  var cleanCalId = (rawCalendarId || '').replace(/@google\.com$/g, '');
+  var encoded = Utilities.base64Encode(cleanEventId + ' ' + cleanCalId);
+  return 'https://calendar.google.com/calendar/event?eid=' + encoded;
+}
+
+/**
  * Creates Google Calendar events based on the user-verified UI data.
  */
 function createCalendarEvents(payload) {
@@ -248,9 +258,17 @@ function createCalendarEvents(payload) {
     for (var i = 0; i < eventsToCreate.length; i++) {
       var ev = eventsToCreate[i];
       
-      // Parse dates and times in local context (script runs in Europe/Berlin timezone)
-      var startStr = ev.startDate + 'T' + ev.startTime;
-      var endStr = ev.endDate + 'T' + ev.endTime;
+      // Parse dates and times in local context
+      var sTime = (ev.startTime || '12:00').trim();
+      if (sTime.length === 5) sTime += ':00';
+      
+      var eTime = (ev.endTime || '13:00').trim();
+      if (eTime.length === 5) eTime += ':00';
+
+      var eventDate = ev.date || ev.startDate || new Date().toISOString().split('T')[0];
+
+      var startStr = eventDate + 'T' + sTime;
+      var endStr = eventDate + 'T' + eTime;
       
       var startVar = new Date(startStr);
       var endVar = new Date(endStr);
@@ -273,17 +291,22 @@ function createCalendarEvents(payload) {
       });
       
       var newEvent = calendar.createEvent(ev.title, startVar, endVar, options);
+      var eventUrl = getCalendarEventUrl(newEvent.getId(), calendarId);
+
       createdEvents.push({
         id: newEvent.getId(),
         title: ev.title,
-        startDate: ev.startDate,
-        startTime: ev.startTime
+        date: eventDate,
+        startTime: (ev.startTime || '12:00').substring(0, 5),
+        endTime: (ev.endTime || '13:00').substring(0, 5),
+        url: eventUrl
       });
     }
     
     // Create Booking/Registration reminder if applicable
     if (payload.registrationOpenDateTime) {
       var regTimeStr = payload.registrationOpenDateTime;
+      if (regTimeStr.length === 16) regTimeStr += ':00';
       var regTime = new Date(regTimeStr);
       
       if (!isNaN(regTime.getTime())) {
@@ -291,9 +314,11 @@ function createCalendarEvents(payload) {
         
         var dateLabel = "";
         if (eventsToCreate.length > 0) {
-          var firstDate = new Date(eventsToCreate[0].startDate);
+          var firstDate = new Date(eventsToCreate[0].date || eventsToCreate[0].startDate);
           var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-          dateLabel = " (" + months[firstDate.getMonth()] + " " + firstDate.getDate() + ")";
+          if (!isNaN(firstDate.getTime())) {
+            dateLabel = " (" + months[firstDate.getMonth()] + " " + firstDate.getDate() + ")";
+          }
         }
         
         var regTitle = "BOOKING: " + eventsToCreate[0].title + dateLabel;
@@ -318,11 +343,14 @@ function createCalendarEvents(payload) {
         regEvent.removeAllReminders();
         regEvent.addPopupReminder(5);
         
+        var regUrl = getCalendarEventUrl(regEvent.getId(), calendarId);
+
         createdEvents.push({
           id: regEvent.getId(),
           title: regTitle,
-          startDate: regTimeStr.split('T')[0],
-          startTime: regTimeStr.split('T')[1],
+          date: regTimeStr.split('T')[0],
+          startTime: (regTimeStr.split('T')[1] || '').substring(0, 5),
+          url: regUrl,
           isBooking: true
         });
       }
