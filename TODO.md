@@ -7,6 +7,7 @@
   - [x] Implement Base64 encoding: `Utilities.base64Encode(rawEventId + " " + calendarId)` (after stripping `@google.com`).
   - [x] Include the computed `url` for both main events and booking reminder events in the returned response.
 - [ ] Keep the original URL if provided in the event details.
+- [ ] use time based caching of http fetch
 
 ## Frontend Interface (`src/Index.html`)
 - [x] Create consistent card layouts (`.card`) and text typography (`.section-header`) for both "Common Event Details" and "Date & Time Occurrences".
@@ -17,3 +18,7 @@
   - [x] Add an embedded Google Map iframe below the Location text field.
   - [x] Implement dynamic map updates pointing to `https://maps.google.com/maps?q={address}&output=embed` with a wide zoom (`z=13`) that updates as the user types.
 - [x] Update the success message screen to render created events as clickable hyperlinks using their respective returned calendar event URLs.
+- [ ] feat: instead of "remove" occurrence, use a toggle so it can be added back
+- [ ] feat: for recurring events a single calendar view to make it easy to toggle which days to import
+- [ ] remove "occurrences" from UI, not needed
+- [ ] layout of occurrences is poor, lots of wasted space and poor alignment
