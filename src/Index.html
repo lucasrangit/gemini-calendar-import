@@ -317,6 +317,35 @@
         </div>
       </div>
 
+      <!-- Report Issue Card -->
+      <div class="card" id="issueReportSection">
+        <div class="section-header" style="color: #d93025;">Report Issue via GitHub</div>
+        <p class="subtitle" style="margin-bottom: 8px;">
+          Noticed incomplete or incorrect event details? You can report an issue on GitHub. The report includes your description and a copy of the JSON response for debugging or automated test suite inclusion.
+        </p>
+
+        <div class="block form-group">
+          <label for="issueDescription">Issue Description</label>
+          <textarea id="issueDescription" class="width-100" style="height: 60px;" placeholder="Describe what went wrong (e.g., incorrect start time, missing location details)..."></textarea>
+        </div>
+
+        <div class="block form-group mb-0">
+          <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleJsonResponseView()">
+            <span>Extracted JSON Response</span>
+            <span id="jsonToggleLabel" style="color: #1a73e8; font-size: 11px;">Show JSON</span>
+          </label>
+          <div id="jsonResponseDisplayContainer" class="hidden mt-12">
+            <div class="diagnostic-panel" id="jsonResponseDisplay" style="max-height: 150px; user-select: all;"></div>
+          </div>
+        </div>
+
+        <div class="block mt-12 mb-0">
+          <button class="width-100" id="btnReportIssue" style="background-color: #f1f3f4; color: #202124; border: 1px solid #dadce0; font-weight: 500;" onclick="submitGithubIssue()">
+            🐛 Submit Issue on GitHub
+          </button>
+        </div>
+      </div>
+
       <!-- Confirmation actions -->
       <div class="block mt-12">
         <button class="action" id="btnCreate" onclick="onCreateClick()">
@@ -593,6 +622,10 @@
       toggleMetaList('missingFields', data.missingFields);
       toggleMetaList('assumptions', data.assumptions);
 
+      // Populate raw JSON response display and clear description
+      document.getElementById('issueDescription').value = '';
+      document.getElementById('jsonResponseDisplay').innerText = JSON.stringify(data, null, 2);
+
       document.getElementById('inputView').classList.add('hidden');
       document.getElementById('previewView').classList.remove('hidden');
       scrollToTop();
@@ -866,6 +899,47 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    function toggleJsonResponseView() {
+      var container = document.getElementById('jsonResponseDisplayContainer');
+      var label = document.getElementById('jsonToggleLabel');
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        label.innerText = 'Hide JSON';
+      } else {
+        container.classList.add('hidden');
+        label.innerText = 'Show JSON';
+      }
+    }
+
+    function submitGithubIssue() {
+      var desc = document.getElementById('issueDescription').value.trim();
+      var jsonStr = JSON.stringify(parsedPayload || {}, null, 2);
+
+      var title = "Parsing Issue Report: " + ((parsedPayload && parsedPayload.events && parsedPayload.events[0] && parsedPayload.events[0].title) || "Event Analysis");
+      if (desc) {
+        // Truncate first sentence/line for issue title if provided
+        var shortDesc = desc.split('\n')[0];
+        if (shortDesc.length > 50) shortDesc = shortDesc.substring(0, 47) + '...';
+        title = "Issue: " + shortDesc;
+      }
+
+      var sourceInput = "";
+      if (currentSourceTab === 'url') {
+        sourceInput = "URL: " + document.getElementById('eventUrl').value.trim();
+      } else {
+        sourceInput = "Raw Text Input";
+      }
+
+      var body = "### Description of Issue\n" + (desc || "*No additional description provided.*") + "\n\n" +
+                 "### Input Source\n" + sourceInput + "\n\n" +
+                 "### JSON Response\n```json\n" + jsonStr + "\n```\n";
+
+      var repoUrl = "https://github.com/lucasrangit/gemini-calendar-import/issues/new";
+      var issueUrl = repoUrl + "?title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
+
+      window.open(issueUrl, '_blank');
     }
 
     function startNewImport() {
