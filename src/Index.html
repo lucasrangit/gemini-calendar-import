@@ -319,30 +319,36 @@
 
       <!-- Report Issue Card -->
       <div class="card" id="issueReportSection">
-        <div class="section-header" style="color: #d93025;">Report Issue via GitHub</div>
-        <p class="subtitle" style="margin-bottom: 8px;">
-          Noticed incomplete or incorrect event details? You can report an issue on GitHub. The report includes your description and a copy of the JSON response for debugging or automated test suite inclusion.
-        </p>
-
-        <div class="block form-group">
-          <label for="issueDescription">Issue Description</label>
-          <textarea id="issueDescription" class="width-100" style="height: 60px;" placeholder="Describe what went wrong (e.g., incorrect start time, missing location details)..."></textarea>
+        <div class="section-header" style="color: #d93025; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: none; margin-bottom: 0; padding-bottom: 0;" onclick="toggleIssueSection()">
+          <span>Report Issue via GitHub</span>
+          <span id="issueSectionToggleLabel" style="color: #1a73e8; font-size: 11px; font-weight: normal; text-transform: none;">Report Issue &#9660;</span>
         </div>
 
-        <div class="block form-group mb-0">
-          <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleJsonResponseView()">
-            <span>Extracted JSON Response</span>
-            <span id="jsonToggleLabel" style="color: #1a73e8; font-size: 11px;">Show JSON</span>
-          </label>
-          <div id="jsonResponseDisplayContainer" class="hidden mt-12">
-            <div class="diagnostic-panel" id="jsonResponseDisplay" style="max-height: 150px; user-select: all;"></div>
+        <div id="issueReportBody" class="hidden" style="margin-top: 10px; border-top: 1px dashed #dadce0; padding-top: 10px;">
+          <p class="subtitle" style="margin-bottom: 8px;">
+            Noticed incomplete or incorrect event details? You can report an issue on GitHub. The report includes your description and a copy of the JSON response for debugging or automated test suite inclusion.
+          </p>
+
+          <div class="block form-group">
+            <label for="issueDescription">Issue Description</label>
+            <textarea id="issueDescription" class="width-100" style="height: 60px;" placeholder="Describe what went wrong (e.g., incorrect start time, missing location details)..."></textarea>
           </div>
-        </div>
 
-        <div class="block mt-12 mb-0">
-          <button class="width-100" id="btnReportIssue" style="background-color: #f1f3f4; color: #202124; border: 1px solid #dadce0; font-weight: 500;" onclick="submitGithubIssue()">
-            🐛 Submit Issue on GitHub
-          </button>
+          <div class="block form-group mb-0">
+            <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleJsonResponseView()">
+              <span>Extracted JSON Response</span>
+              <span id="jsonToggleLabel" style="color: #1a73e8; font-size: 11px;">Show JSON</span>
+            </label>
+            <div id="jsonResponseDisplayContainer" class="hidden mt-12">
+              <div class="diagnostic-panel" id="jsonResponseDisplay" style="max-height: 150px; user-select: all;"></div>
+            </div>
+          </div>
+
+          <div class="block mt-12 mb-0">
+            <button class="width-100" id="btnReportIssue" style="background-color: #f1f3f4; color: #202124; border: 1px solid #dadce0; font-weight: 500;" onclick="submitGithubIssue()">
+              🐛 Submit Issue on GitHub
+            </button>
+          </div>
         </div>
       </div>
 
@@ -626,6 +632,10 @@
       document.getElementById('issueDescription').value = '';
       document.getElementById('jsonResponseDisplay').innerText = JSON.stringify(data, null, 2);
 
+      // Ensure issue section is collapsed by default on preview render
+      document.getElementById('issueReportBody').classList.add('hidden');
+      document.getElementById('issueSectionToggleLabel').innerHTML = 'Report Issue &#9660;';
+
       document.getElementById('inputView').classList.add('hidden');
       document.getElementById('previewView').classList.remove('hidden');
       scrollToTop();
@@ -899,6 +909,18 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    function toggleIssueSection() {
+      var body = document.getElementById('issueReportBody');
+      var label = document.getElementById('issueSectionToggleLabel');
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        label.innerHTML = 'Hide &#9650;';
+      } else {
+        body.classList.add('hidden');
+        label.innerHTML = 'Report Issue &#9660;';
+      }
     }
 
     function toggleJsonResponseView() {
