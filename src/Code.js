@@ -202,6 +202,83 @@ function parseEventText(textOrUrl) {
 }
 
 /**
+ * Submits an issue report to GitHub via GitHub API using script property GITHUB_TOKEN.
+ */
+function submitGithubIssueReport(issueData) {
+  try {
+    var githubToken = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+    if (!githubToken) {
+      return {
+        success: false,
+        errorType: 'CONFIG_ERROR',
+        message: 'GitHub Token is not configured. Please add GITHUB_TOKEN to Script Properties.'
+      };
+    }
+
+    var userDesc = (issueData.description || '').trim();
+    var jsonPayload = issueData.jsonPayload || {};
+    var jsonStr = typeof jsonPayload === 'string' ? jsonPayload : JSON.stringify(jsonPayload, null, 2);
+
+    var title = "Parsing Issue Report: " + ((jsonPayload.events && jsonPayload.events[0] && jsonPayload.events[0].title) || "Event Analysis");
+    if (userDesc) {
+      var shortDesc = userDesc.split('\n')[0];
+      if (shortDesc.length > 50) shortDesc = shortDesc.substring(0, 47) + '...';
+      title = "Issue: " + shortDesc;
+    }
+
+    var sourceInput = issueData.sourceInput || "Not specified";
+
+    var body = "### Description of Issue\n" + (userDesc || "*No additional description provided.*") + "\n\n" +
+               "### Input Source\n" + sourceInput + "\n\n" +
+               "### JSON Response\n```json\n" + jsonStr + "\n```\n";
+
+    var apiUrl = "https://api.github.com/repos/lucasrangit/gemini-calendar-import/issues";
+    var payload = {
+      "title": title,
+      "body": body
+    };
+
+    var options = {
+      "method": "post",
+      "contentType": "application/json",
+      "headers": {
+        "Authorization": "token " + githubToken,
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "AppsScript-GeminiCalendarImport"
+      },
+      "payload": JSON.stringify(payload),
+      "muteHttpExceptions": true
+    };
+
+    var response = UrlFetchApp.fetch(apiUrl, options);
+    var statusCode = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    if (statusCode >= 200 && statusCode < 300) {
+      var resJson = JSON.parse(responseText);
+      return {
+        success: true,
+        issueUrl: resJson.html_url,
+        issueNumber: resJson.number
+      };
+    } else {
+      return {
+        success: false,
+        errorType: 'GITHUB_API_ERROR',
+        message: 'GitHub API error ' + statusCode + ': ' + responseText
+      };
+    }
+
+  } catch (e) {
+    return {
+      success: false,
+      errorType: 'SYSTEM_ERROR',
+      message: e.toString()
+    };
+  }
+}
+
+/**
  * Strips HTML tags and script elements, returning clean, condensed text.
  */
 function cleanHtml(html) {
