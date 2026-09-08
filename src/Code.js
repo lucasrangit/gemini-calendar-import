@@ -81,19 +81,7 @@ function parseEventText(textOrUrl) {
       }
     }
 
-    // 2. Retrieve Gemini API Key
-    var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) {
-      return {
-        success: false,
-        errorType: 'CONFIG_ERROR',
-        message: 'Gemini API Key is not configured. Please go to Project Settings -> Script Properties and add GEMINI_API_KEY.'
-      };
-    }
-
-    // 3. Query Gemini API
-    var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' + apiKey;
-
+    // 2. Call Gemini API via GeminiService
     var systemInstruction =
       "You are a highly efficient administrative assistant specialized in parsing event information from text and formatting them for Google Calendar. " +
       "Translate all extracted details into English if the source is in another language (e.g. German).\n\n" +
@@ -125,58 +113,14 @@ function parseEventText(textOrUrl) {
       "  \"assumptions\": [\"list of assumptions made (e.g. defaulted end time to 1 hour after start)\"]\n" +
       "}";
 
-    var payload = {
-      "contents": [
-        {
-          "parts": [
-            {
-              "text": "Extract event details from the text below. Note that today's date is Wednesday, July 15, 2026.\n\nContent:\n" + textToParse
-            }
-          ]
-        }
-      ],
-      "systemInstruction": {
-        "parts": [
-          {
-            "text": systemInstruction
-          }
-        ]
-      },
-      "generationConfig": {
-        "responseMimeType": "application/json"
-      }
-    };
+    var prompt = "Extract event details from the text below. Note that today's date is Wednesday, July 15, 2026.\n\nContent:\n" + textToParse;
 
-    var options = {
-      "method": "post",
-      "contentType": "application/json",
-      "payload": JSON.stringify(payload),
-      "muteHttpExceptions": true
-    };
-
-    var response = UrlFetchApp.fetch(apiUrl, options);
-    var responseText = response.getContentText();
-    var status = response.getResponseCode();
-
-    if (status !== 200) {
-      return {
-        success: false,
-        errorType: 'GEMINI_API_ERROR',
-        message: 'Gemini API returned error code ' + status + ': ' + responseText
-      };
+    var result = generateContent(prompt, systemInstruction);
+    if (!result.success) {
+      return result;
     }
 
-    var resultJson = JSON.parse(responseText);
-    if (!resultJson.candidates || resultJson.candidates.length === 0) {
-      return {
-        success: false,
-        errorType: 'GEMINI_API_ERROR',
-        message: 'No response candidate received from Gemini.'
-      };
-    }
-
-    var candidateText = resultJson.candidates[0].content.parts[0].text;
-    var parsedData = JSON.parse(candidateText.trim());
+    var parsedData = JSON.parse(result.text.trim());
 
     if (parsedData.error) {
       return {
