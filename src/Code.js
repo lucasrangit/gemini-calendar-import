@@ -40,7 +40,7 @@ function parseEventText(textOrUrl) {
   try {
     var textToParse = textOrUrl.trim();
     var isUrl = false;
-    
+
     // 1. Fetch URL contents if a URL is provided
     if (textToParse.toLowerCase().startsWith('http://') || textToParse.toLowerCase().startsWith('https://')) {
       isUrl = true;
@@ -52,7 +52,7 @@ function parseEventText(textOrUrl) {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           }
         });
-        
+
         var code = response.getResponseCode();
         if (code !== 200) {
           return {
@@ -61,10 +61,10 @@ function parseEventText(textOrUrl) {
             message: 'Failed to access the website. Server returned HTTP status ' + code + '. Please copy-paste the text of the page instead.'
           };
         }
-        
+
         var html = response.getContentText();
         textToParse = cleanHtml(html);
-        
+
         if (textToParse.length < 50) {
           return {
             success: false,
@@ -80,7 +80,7 @@ function parseEventText(textOrUrl) {
         };
       }
     }
-    
+
     // 2. Retrieve Gemini API Key
     var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey) {
@@ -90,11 +90,11 @@ function parseEventText(textOrUrl) {
         message: 'Gemini API Key is not configured. Please go to Project Settings -> Script Properties and add GEMINI_API_KEY.'
       };
     }
-    
+
     // 3. Query Gemini API
-    var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' + apiKey;
-    
-    var systemInstruction = 
+    var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' + apiKey;
+
+    var systemInstruction =
       "You are a highly efficient administrative assistant specialized in parsing event information from text and formatting them for Google Calendar. " +
       "Translate all extracted details into English if the source is in another language (e.g. German).\n\n" +
       "RULES:\n" +
@@ -124,7 +124,7 @@ function parseEventText(textOrUrl) {
       "  \"missingFields\": [\"list of missing information\"],\n" +
       "  \"assumptions\": [\"list of assumptions made (e.g. defaulted end time to 1 hour after start)\"]\n" +
       "}";
-      
+
     var payload = {
       "contents": [
         {
@@ -146,18 +146,18 @@ function parseEventText(textOrUrl) {
         "responseMimeType": "application/json"
       }
     };
-    
+
     var options = {
       "method": "post",
       "contentType": "application/json",
       "payload": JSON.stringify(payload),
       "muteHttpExceptions": true
     };
-    
+
     var response = UrlFetchApp.fetch(apiUrl, options);
     var responseText = response.getContentText();
     var status = response.getResponseCode();
-    
+
     if (status !== 200) {
       return {
         success: false,
@@ -165,7 +165,7 @@ function parseEventText(textOrUrl) {
         message: 'Gemini API returned error code ' + status + ': ' + responseText
       };
     }
-    
+
     var resultJson = JSON.parse(responseText);
     if (!resultJson.candidates || resultJson.candidates.length === 0) {
       return {
@@ -174,10 +174,10 @@ function parseEventText(textOrUrl) {
         message: 'No response candidate received from Gemini.'
       };
     }
-    
+
     var candidateText = resultJson.candidates[0].content.parts[0].text;
     var parsedData = JSON.parse(candidateText.trim());
-    
+
     if (parsedData.error) {
       return {
         success: false,
@@ -185,13 +185,13 @@ function parseEventText(textOrUrl) {
         message: parsedData.error
       };
     }
-    
+
     return {
       success: true,
       data: parsedData,
       rawInputUsed: isUrl ? "URL content successfully fetched." : "Pasted text."
     };
-    
+
   } catch (e) {
     return {
       success: false,
@@ -215,7 +215,7 @@ function cleanHtml(html) {
                    .replace(/&quot;/gi, '"')
                    .replace(/&#39;/gi, "'");
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  
+
   // Truncate text to avoid payload limit issues (e.g. maximum 60,000 characters)
   if (cleaned.length > 60000) {
     cleaned = cleaned.substring(0, 60000) + "... [truncated due to length]";
@@ -244,24 +244,24 @@ function createCalendarEvents(payload) {
     apiParameters: [],
     errors: []
   };
-  
+
   try {
     var calendarId = payload.calendarId;
     var calendar = CalendarApp.getCalendarById(calendarId);
-    
+
     if (!calendar) {
       throw new Error("Calendar not found with ID: " + calendarId + ". Make sure you have authorized access and it exists.");
     }
-    
+
     var eventsToCreate = payload.events;
-    
+
     for (var i = 0; i < eventsToCreate.length; i++) {
       var ev = eventsToCreate[i];
-      
+
       // Parse dates and times in local context
       var sTime = (ev.startTime || '12:00').trim();
       if (sTime.length === 5) sTime += ':00';
-      
+
       var eTime = (ev.endTime || '13:00').trim();
       if (eTime.length === 5) eTime += ':00';
 
@@ -269,19 +269,19 @@ function createCalendarEvents(payload) {
 
       var startStr = eventDate + 'T' + sTime;
       var endStr = eventDate + 'T' + eTime;
-      
+
       var startVar = new Date(startStr);
       var endVar = new Date(endStr);
-      
+
       if (isNaN(startVar.getTime()) || isNaN(endVar.getTime())) {
         throw new Error("Invalid start/end date time formatting: " + startStr + " or " + endStr);
       }
-      
+
       var options = {
         description: ev.description,
         location: ev.location
       };
-      
+
       diagnosticInfo.apiParameters.push({
         type: 'MAIN_EVENT',
         title: ev.title,
@@ -289,7 +289,7 @@ function createCalendarEvents(payload) {
         end: endStr,
         options: options
       });
-      
+
       var newEvent = calendar.createEvent(ev.title, startVar, endVar, options);
       var eventUrl = getCalendarEventUrl(newEvent.getId(), calendarId);
 
@@ -302,16 +302,16 @@ function createCalendarEvents(payload) {
         url: eventUrl
       });
     }
-    
+
     // Create Booking/Registration reminder if applicable
     if (payload.registrationOpenDateTime) {
       var regTimeStr = payload.registrationOpenDateTime;
       if (regTimeStr.length === 16) regTimeStr += ':00';
       var regTime = new Date(regTimeStr);
-      
+
       if (!isNaN(regTime.getTime())) {
         var regEndTime = new Date(regTime.getTime() + 15 * 60 * 1000); // 15 mins long
-        
+
         var dateLabel = "";
         if (eventsToCreate.length > 0) {
           var firstDate = new Date(eventsToCreate[0].date || eventsToCreate[0].startDate);
@@ -320,15 +320,15 @@ function createCalendarEvents(payload) {
             dateLabel = " (" + months[firstDate.getMonth()] + " " + firstDate.getDate() + ")";
           }
         }
-        
+
         var regTitle = "BOOKING: " + eventsToCreate[0].title + dateLabel;
-        var regDesc = "Task to book the event.\n\nLink: " + (payload.registrationLink || "Not specified") + 
+        var regDesc = "Task to book the event.\n\nLink: " + (payload.registrationLink || "Not specified") +
                        "\nRequirements: " + (payload.registrationRequirements || "None");
-        
+
         var regOptions = {
           description: regDesc
         };
-        
+
         diagnosticInfo.apiParameters.push({
           type: 'BOOKING_REMINDER',
           title: regTitle,
@@ -336,13 +336,13 @@ function createCalendarEvents(payload) {
           end: regEndTime.toISOString(),
           options: regOptions
         });
-        
+
         var regEvent = calendar.createEvent(regTitle, regTime, regEndTime, regOptions);
-        
+
         // Remove default notifications and add custom 5-minute notification
         regEvent.removeAllReminders();
         regEvent.addPopupReminder(5);
-        
+
         var regUrl = getCalendarEventUrl(regEvent.getId(), calendarId);
 
         createdEvents.push({
@@ -355,7 +355,7 @@ function createCalendarEvents(payload) {
         });
       }
     }
-    
+
     // Verification: check if the created event IDs can be retrieved
     var verified = true;
     for (var j = 0; j < createdEvents.length; j++) {
@@ -368,7 +368,7 @@ function createCalendarEvents(payload) {
         verified = false;
       }
     }
-    
+
     return {
       success: true,
       verified: verified,
@@ -376,7 +376,7 @@ function createCalendarEvents(payload) {
       bookingCreated: !!payload.registrationOpenDateTime,
       events: createdEvents
     };
-    
+
   } catch (e) {
     diagnosticInfo.errors.push(e.toString());
     return {
