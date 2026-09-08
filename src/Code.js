@@ -113,7 +113,7 @@ function parseEventText(textOrUrl) {
       "  \"assumptions\": [\"list of assumptions made (e.g. defaulted end time to 1 hour after start)\"]\n" +
       "}";
 
-    var prompt = "Extract event details from the text below. Note that today's date is Wednesday, July 15, 2026.\n\nContent:\n" + textToParse;
+    var prompt = "Extract event details from the text below. Note that today's date is " + new Date().toISOString().split('T')[0] + ".\n\nContent:\n" + textToParse;
 
     var result = generateContent(prompt, systemInstruction);
     if (!result.success) {
