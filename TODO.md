@@ -1,6 +1,10 @@
 # TODO
 
-## Backend Changes (`src/Code.js`)
+## General
+
+- [x] Support sources with events that change location. Optimize the simple case of one event and location to multiple dates. However, if the location changes, also support import.
+
+## Backend (`src/Code.js`)
 - [x] **Simplify Gemini schema**: Update the `systemInstruction` prompt to return a single `date` field instead of separate `startDate`/`endDate` fields.
 - [x] **Adjust event generation**: Refactor `createCalendarEvents()` to parse `ev.date` for both event start/end times.
 - [x] **Generate clickable Google Calendar links**:
@@ -8,8 +12,9 @@
   - [x] Include the computed `url` for both main events and booking reminder events in the returned response.
 - [ ] Keep the original URL if provided in the event details.
 - [ ] use time based caching of http fetch
+- [ ] keep import url or text in event description
 
-## Frontend Interface (`src/Index.html`)
+## Frontend (`src/Index.html`)
 - [x] Create consistent card layouts (`.card`) and text typography (`.section-header`) for both "Common Event Details" and "Date & Time Occurrences".
 - [x] Set text inputs, textareas, and select elements to `width: 100%` within cards.
 - [x] Adjust `addOccurrenceRow` to use a `grid-3` layout (`Date`, `Start Time`, `End Time`) and accept only a single date value.
@@ -22,3 +27,4 @@
 - [ ] feat: for recurring events a single calendar view to make it easy to toggle which days to import
 - [ ] remove "occurrences" from UI, not needed
 - [ ] layout of occurrences is poor, lots of wasted space and poor alignment
+- [ ] show input url or text after parsing

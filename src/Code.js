@@ -90,9 +90,10 @@ function parseEventText(textOrUrl) {
       "2. Time Formats: Output dates as 'YYYY-MM-DD' and times as 24-hour format 'HH:MM' (without seconds precision).\n" +
       "3. Default Times: If no times are specified, set date. For time fields, default missing start times to '12:00' and end times to '13:00', and record this under assumptions.\n" +
       "4. Multiple Consecutive Days: If the event spans multiple consecutive days (e.g. a workshop from June 2 to June 4), output a separate event object in the 'events' array for each day (e.g. one for June 2, one for June 3, one for June 4). IMPORTANT: Each occurrence's description must contain the FULL event details and URLs; do not truncate, abbreviate, or write 'same as day 1'.\n" +
-      "5. Recurring Events: If the event repeats (e.g. every Tuesday), output the next 5 occurrences, calculating the dates starting from the current date (Wednesday, July 15, 2026). If the repeating event specifies an end date, do not output occurrences past that end date. Ensure each repeating occurrence contains the identical, full description.\n" +
-      "6. Registration & Booking: Extract any registration opening times ('registrationOpenDateTime' in format YYYY-MM-DDTHH:MM), registration links, or requirements. This will be used to create booking reminders.\n" +
-      "7. No Event Found: If the text contains no calendar event details, return a JSON containing an 'error' field detailing what was missing.\n\n" +
+      "5. Multiple Locations: If occurrences take place at different venues or locations, extract the specific location for each occurrence; if they share the same venue, keep them identical. For physical locations, provide best-effort approximate 'latitude' and 'longitude' (as numbers, or null if unknown or virtual).\n" +
+      "6. Recurring Events: If the event repeats (e.g. every Tuesday), output the next 5 occurrences, calculating the dates starting from the current date (Wednesday, July 15, 2026). If the repeating event specifies an end date, do not output occurrences past that end date. Ensure each repeating occurrence contains the identical, full description.\n" +
+      "7. Registration & Booking: Extract any registration opening times ('registrationOpenDateTime' in format YYYY-MM-DDTHH:MM), registration links, or requirements. This will be used to create booking reminders.\n" +
+      "8. No Event Found: If the text contains no calendar event details, return a JSON containing an 'error' field detailing what was missing.\n\n" +
       "Return ONLY a valid JSON object matching the following structure:\n" +
       "{\n" +
       "  \"events\": [\n" +
@@ -100,6 +101,8 @@ function parseEventText(textOrUrl) {
       "      \"title\": \"Event Title\",\n" +
       "      \"description\": \"Detailed comprehensive description including all links and URLs, fully populated for every occurrence\",\n" +
       "      \"location\": \"Full Address or Link\",\n" +
+      "      \"latitude\": 52.5200,\n" +
+      "      \"longitude\": 13.4050,\n" +
       "      \"date\": \"YYYY-MM-DD\",\n" +
       "      \"startTime\": \"HH:MM\",\n" +
       "      \"endTime\": \"HH:MM\",\n" +

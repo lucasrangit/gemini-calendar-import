@@ -4,13 +4,31 @@
   <base target="_top">
   <!-- Link the legacy Google Apps Script stylesheet -->
   <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+  <!-- Leaflet for interactive OpenStreetMap previews -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body {
       background-color: #ffffff;
       padding: 0;
       margin: 0;
     }
-    
+
+    .numbered-pin {
+      background-color: #1a73e8;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 11px;
+      text-align: center;
+      line-height: 20px;
+      width: 24px;
+      height: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+      box-sizing: border-box;
+    }
+
     .container {
       padding: 16px;
       margin: 0 auto;
@@ -59,7 +77,7 @@
       margin-bottom: 14px;
       box-shadow: 0 1px 3px rgba(60,64,67,0.08);
     }
-    
+
     .section-header {
       font-size: 13px;
       font-weight: 600;
@@ -158,7 +176,7 @@
     .mt-12 {
       margin-top: 12px;
     }
-    
+
     .mb-0 {
       margin-bottom: 0 !important;
     }
@@ -181,7 +199,7 @@
       margin: 8px 0;
       padding-left: 16px;
     }
-    
+
     .template-links-list li {
       margin-bottom: 4px;
     }
@@ -258,23 +276,24 @@
       <!-- Common Event Details Editor -->
       <div class="card">
         <div class="section-header">Common Event Details</div>
-        
+
         <div class="block form-group">
           <label for="commonTitle">Event Title</label>
           <input type="text" id="commonTitle" class="width-100" />
         </div>
-        
-        <div class="block form-group">
+
+        <div class="block form-group" id="commonLocationGroup">
           <label for="commonLocation">Location</label>
-          <input type="text" id="commonLocation" class="width-100" placeholder="e.g. Alexanderplatz 1, Berlin" oninput="updateMapPreview(this.value)" />
-          <div id="mapPreviewContainer" class="hidden mt-12" style="border-radius: 6px; overflow: hidden; border: 1px solid #dadce0;">
-            <iframe id="mapIframe" width="100%" height="180" frameborder="0" style="border:0;" allowfullscreen="" src="about:blank"></iframe>
-          </div>
+          <input type="text" id="commonLocation" class="width-100" placeholder="e.g. Alexanderplatz 1, Berlin" oninput="onCommonLocationInput(this.value)" />
         </div>
-        
+
         <div class="block form-group mb-0">
           <label for="commonDescription">Description</label>
           <textarea id="commonDescription" class="width-100" style="height: 100px;"></textarea>
+        </div>
+
+        <div id="mapPreviewContainer" class="hidden mt-12" style="border-radius: 6px; overflow: hidden; border: 1px solid #dadce0; height: 220px;">
+          <div id="mapContainer" style="height: 100%; width: 100%;"></div>
         </div>
       </div>
 
@@ -288,17 +307,17 @@
       <!-- Global Registration Reminder Config -->
       <div id="registrationReminderSection" class="card hidden">
         <div class="section-header">Ticket Booking Reminder</div>
-        
+
         <div class="block form-group">
           <label for="regOpenDateTime">Registration Opens (Date & Time)</label>
           <input type="text" id="regOpenDateTime" class="width-100" placeholder="YYYY-MM-DDTHH:MM" />
         </div>
-        
+
         <div class="block form-group">
           <label for="regLink">Registration / Ticket Link</label>
           <input type="text" id="regLink" class="width-100" placeholder="https://..." />
         </div>
-        
+
         <div class="block form-group mb-0">
           <label for="regRequirements">Requirements</label>
           <input type="text" id="regRequirements" class="width-100" placeholder="e.g. RSVP mandatory, Free admission" />
@@ -333,9 +352,9 @@
         <strong>Events Successfully Created!</strong>
         <p id="successMessage" style="margin: 4px 0 0 0;"></p>
       </div>
-      
+
       <div id="createdEventsList" style="display: flex; flex-direction: column; gap: 6px;"></div>
-      
+
       <div class="block mt-12">
         <button class="action width-100" onclick="startNewImport()">Import New Event</button>
       </div>
@@ -355,16 +374,16 @@
 
       <div class="block mt-12">
         <label style="font-weight: bold; display: block; margin-bottom: 6px;">Manual Calendar Integrations</label>
-        
+
         <p class="gray" style="font-size: 11px; margin-bottom: 6px;">Since Google Calendar API creation failed, choose one of these instant methods:</p>
-        
+
         <ul class="template-links-list" id="gcalTemplateLinks"></ul>
-        
+
         <button class="action" style="margin-top: 8px; width: 100%;" onclick="triggerIcsDownload()">
           Download .ics File (Manual Import)
         </button>
       </div>
-      
+
       <div class="block mt-12" style="border-top: 1px solid #eee; padding-top: 10px;">
         <button onclick="startNewImport()">Back to Import Screen</button>
       </div>
@@ -385,7 +404,7 @@
     function switchTab(type) {
       currentSourceTab = type;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      
+
       if (type === 'url') {
         document.querySelector('.tab:nth-child(1)').classList.add('active');
         document.getElementById('urlGroup').classList.remove('hidden');
@@ -435,23 +454,23 @@
     function populateCalendarDropdown() {
       var select = document.getElementById('calendarSelect');
       select.innerHTML = '';
-      
+
       var targetName = 'Berlin Events';
       var targetId = 'c060eb28aba7b470247720172698de5db4429ee801628553bf96547a4eec17f6@group.calendar.google.com';
-      
+
       var matchedCal = null;
-      
+
       userCalendars.forEach(function(cal) {
         var option = document.createElement('option');
         option.value = cal.id;
         option.text = cal.name + (cal.isPrimary ? ' (Primary)' : '');
         select.appendChild(option);
-        
+
         if (cal.id === targetId || cal.name.toLowerCase() === targetName.toLowerCase()) {
           matchedCal = cal.id;
         }
       });
-      
+
       if (matchedCal) {
         select.value = matchedCal;
       } else {
@@ -463,17 +482,150 @@
       }
     }
 
-    function updateMapPreview(address) {
+    var leafletMap = null;
+    var leafletMarkers = [];
+    var geocodeCache = {};
+    var isSplitLocationMode = false;
+    var mapGeocodeTimeout = null;
+
+    function initMapIfNeeded() {
       var container = document.getElementById('mapPreviewContainer');
-      var iframe = document.getElementById('mapIframe');
-      var cleanAddr = (address || '').trim();
-      if (cleanAddr) {
-        iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(cleanAddr) + '&z=13&output=embed';
-        container.classList.remove('hidden');
-      } else {
-        iframe.src = 'about:blank';
-        container.classList.add('hidden');
+      container.classList.remove('hidden');
+      if (!leafletMap) {
+        leafletMap = L.map('mapContainer').setView([52.5200, 13.4050], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(leafletMap);
       }
+      setTimeout(function() {
+        if (leafletMap) leafletMap.invalidateSize();
+      }, 150);
+    }
+
+    function createNumberedIcon(number) {
+      return L.divIcon({
+        className: 'custom-div-icon',
+        html: '<div class="numbered-pin">' + number + '</div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+    }
+
+    function clearMapMarkers() {
+      leafletMarkers.forEach(function(m) {
+        if (leafletMap) leafletMap.removeLayer(m);
+      });
+      leafletMarkers = [];
+    }
+
+    function geocodeAddress(address, callback) {
+      var clean = (address || '').trim();
+      if (!clean) return callback(null);
+      if (geocodeCache[clean]) return callback(geocodeCache[clean]);
+
+      var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(clean + ', Berlin');
+      fetch(url, { headers: { 'Accept': 'application/json' } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.length > 0) {
+            var coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            geocodeCache[clean] = coords;
+            callback(coords);
+          } else {
+            callback(null);
+          }
+        })
+        .catch(function() {
+          callback(null);
+        });
+    }
+
+    function renderAllMarkers() {
+      var rows = document.querySelectorAll('#occurrencesContainer .occurrence-row');
+      if (rows.length === 0) {
+        clearMapMarkers();
+        document.getElementById('mapPreviewContainer').classList.add('hidden');
+        return;
+      }
+
+      initMapIfNeeded();
+      clearMapMarkers();
+
+      var commonLoc = document.getElementById('commonLocation').value.trim();
+      var bounds = [];
+      var hasAnyLocation = false;
+
+      rows.forEach(function(row, idx) {
+        var num = idx + 1;
+        var loc = isSplitLocationMode
+          ? (row.querySelector('.ev-location') ? row.querySelector('.ev-location').value.trim() : '')
+          : commonLoc;
+
+        if (loc) hasAnyLocation = true;
+
+        var lat = row.dataset.lat ? parseFloat(row.dataset.lat) : null;
+        var lng = row.dataset.lng ? parseFloat(row.dataset.lng) : null;
+
+        if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+          var marker = L.marker([lat, lng], {
+            icon: createNumberedIcon(num),
+            interactive: false
+          }).addTo(leafletMap);
+          leafletMarkers.push(marker);
+          bounds.push([lat, lng]);
+        } else if (loc) {
+          geocodeAddress(loc, function(coords) {
+            if (coords) {
+              row.dataset.lat = coords[0];
+              row.dataset.lng = coords[1];
+              var marker = L.marker(coords, {
+                icon: createNumberedIcon(num),
+                interactive: false
+              }).addTo(leafletMap);
+              leafletMarkers.push(marker);
+              bounds.push(coords);
+              if (bounds.length === 1) {
+                leafletMap.setView(coords, 14);
+              } else if (bounds.length > 1) {
+                leafletMap.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+              }
+            }
+          });
+        }
+      });
+
+      if (bounds.length === 1) {
+        leafletMap.setView(bounds[0], 14);
+      } else if (bounds.length > 1) {
+        leafletMap.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+      } else if (!hasAnyLocation) {
+        document.getElementById('mapPreviewContainer').classList.add('hidden');
+      }
+    }
+
+    function onCommonLocationInput(val) {
+      if (mapGeocodeTimeout) clearTimeout(mapGeocodeTimeout);
+      var rows = document.querySelectorAll('#occurrencesContainer .occurrence-row');
+      rows.forEach(function(row) {
+        delete row.dataset.lat;
+        delete row.dataset.lng;
+      });
+      mapGeocodeTimeout = setTimeout(function() {
+        renderAllMarkers();
+      }, 500);
+    }
+
+    function onOccurrenceLocationChange(inputEl) {
+      var row = inputEl.closest('.occurrence-row');
+      if (row) {
+        delete row.dataset.lat;
+        delete row.dataset.lng;
+      }
+      if (mapGeocodeTimeout) clearTimeout(mapGeocodeTimeout);
+      mapGeocodeTimeout = setTimeout(function() {
+        renderAllMarkers();
+      }, 500);
     }
 
     function generate30MinOptions(selectedValue) {
@@ -524,7 +676,7 @@
       }
 
       setLoadingState('parse', true);
-      
+
       google.script.run
         .withSuccessHandler(function(result) {
           setLoadingState('parse', false);
@@ -545,7 +697,7 @@
     function setLoadingState(action, isLoading) {
       var btn = (action === 'parse') ? document.getElementById('btnParse') : document.getElementById('btnCreate');
       var loader = (action === 'parse') ? document.getElementById('parseLoader') : document.getElementById('createLoader');
-      
+
       if (isLoading) {
         btn.disabled = true;
         loader.classList.remove('hidden');
@@ -561,11 +713,28 @@
         return;
       }
 
+      // Detect if occurrences have varying locations
+      var locations = [];
+      data.events.forEach(function(ev) {
+        var l = (ev.location || '').trim();
+        if (l) locations.push(l);
+      });
+      var uniqueLocs = Array.from(new Set(locations));
+      isSplitLocationMode = uniqueLocs.length > 1;
+
       var firstEvent = data.events[0];
       document.getElementById('commonTitle').value = firstEvent.title || '';
-      document.getElementById('commonLocation').value = firstEvent.location || '';
-      updateMapPreview(firstEvent.location || '');
       document.getElementById('commonDescription').value = firstEvent.description || '';
+
+      var commonLocGroup = document.getElementById('commonLocationGroup');
+      var commonLocInput = document.getElementById('commonLocation');
+      if (isSplitLocationMode) {
+        commonLocGroup.classList.add('hidden');
+        commonLocInput.value = '';
+      } else {
+        commonLocGroup.classList.remove('hidden');
+        commonLocInput.value = uniqueLocs[0] || (firstEvent.location || '');
+      }
 
       var container = document.getElementById('occurrencesContainer');
       container.innerHTML = '';
@@ -574,9 +743,13 @@
         var dateVal = ev.date || ev.startDate || '';
         var startTimeVal = (ev.startTime || '').substring(0, 5);
         var endTimeVal = (ev.endTime || '').substring(0, 5);
-        addOccurrenceRow(dateVal, startTimeVal, endTimeVal);
+        var locVal = ev.location || '';
+        var latVal = (typeof ev.latitude === 'number') ? ev.latitude : null;
+        var lngVal = (typeof ev.longitude === 'number') ? ev.longitude : null;
+        addOccurrenceRow(dateVal, startTimeVal, endTimeVal, locVal, latVal, lngVal);
       });
       reindexOccurrences();
+      renderAllMarkers();
 
       if (data.registrationOpenDateTime) {
         document.getElementById('registrationReminderSection').classList.remove('hidden');
@@ -598,22 +771,39 @@
       scrollToTop();
     }
 
-    function addOccurrenceRow(dateVal, startTimeVal, endTimeVal) {
+    function addOccurrenceRow(dateVal, startTimeVal, endTimeVal, locVal, latVal, lngVal) {
       var container = document.getElementById('occurrencesContainer');
       var row = document.createElement('div');
       row.className = 'event-item occurrence-row card';
       row.style.padding = '10px';
       row.style.marginBottom = '10px';
 
+      if (latVal != null && lngVal != null) {
+        row.dataset.lat = latVal;
+        row.dataset.lng = lngVal;
+      }
+
       var cleanDate = (dateVal || '').substring(0, 10);
       var cleanStart = (startTimeVal || '').substring(0, 5);
       var cleanEnd = (endTimeVal || '').substring(0, 5);
+      var cleanLoc = (locVal || '').trim();
+
+      var locationHtml = '';
+      if (isSplitLocationMode) {
+        locationHtml = `
+          <div class="block form-group" style="margin-bottom: 8px;">
+            <label style="font-size: 10px; font-weight: bold;">Location</label>
+            <input type="text" class="ev-location width-100" value="${escapeHtml(cleanLoc)}" placeholder="e.g. Alexanderplatz 1, Berlin" style="padding: 4px 6px; font-size: 12px;" oninput="onOccurrenceLocationChange(this)" />
+          </div>
+        `;
+      }
 
       row.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span style="font-size: 11px; font-weight: bold; color: #5f6368;" class="occurrence-number">Occurrence</span>
-          <a class="delete-link" onclick="this.closest('.occurrence-row').remove(); reindexOccurrences();">Remove</a>
+          <a class="delete-link" onclick="removeOccurrence(this)">Remove</a>
         </div>
+        ${locationHtml}
         <div class="grid-3">
           <div class="block form-group mb-0">
             <label style="font-size: 10px; font-weight: bold;">Date</label>
@@ -638,10 +828,19 @@
       container.appendChild(row);
     }
 
+    function removeOccurrence(linkEl) {
+      var row = linkEl.closest('.occurrence-row');
+      if (row) row.remove();
+      reindexOccurrences();
+      renderAllMarkers();
+    }
+
     function addBlankOccurrence() {
       var today = new Date().toISOString().split('T')[0];
-      addOccurrenceRow(today, '12:00', '13:00');
+      var defaultLoc = isSplitLocationMode ? '' : document.getElementById('commonLocation').value.trim();
+      addOccurrenceRow(today, '12:00', '13:00', defaultLoc, null, null);
       reindexOccurrences();
+      renderAllMarkers();
     }
 
     function reindexOccurrences() {
@@ -655,7 +854,7 @@
       var block = document.getElementById(prefix + 'Block');
       var list = document.getElementById(prefix + 'List');
       list.innerHTML = '';
-      
+
       if (items && items.length > 0) {
         items.forEach(function(item) {
           var li = document.createElement('li');
@@ -672,18 +871,20 @@
       document.getElementById('previewView').classList.add('hidden');
       document.getElementById('inputView').classList.remove('hidden');
       parsedPayload = null;
+      clearMapMarkers();
+      document.getElementById('mapPreviewContainer').classList.add('hidden');
     }
 
     function onCreateClick() {
       clearError();
-      
+
       var calSelect = document.getElementById('calendarSelect');
       var calendarId = calSelect.value;
-      
+
       var commonTitle = document.getElementById('commonTitle').value.trim();
       var commonLoc = document.getElementById('commonLocation').value.trim();
       var commonDesc = document.getElementById('commonDescription').value.trim();
-      
+
       if (!commonTitle) {
         return showError("Event Title is required.");
       }
@@ -692,7 +893,7 @@
       if (occurrenceRows.length === 0) {
         return showError("Please configure at least one event occurrence.");
       }
-      
+
       var eventsPayload = [];
       var validationError = false;
 
@@ -700,14 +901,17 @@
         var dateVal = row.querySelector('.ev-date').value.trim();
         var sTime = row.querySelector('.ev-stime').value.trim();
         var eTime = row.querySelector('.ev-etime').value.trim();
-        
+        var locVal = isSplitLocationMode
+          ? (row.querySelector('.ev-location') ? row.querySelector('.ev-location').value.trim() : '')
+          : commonLoc;
+
         if (!dateVal || !sTime || !eTime) {
           validationError = true;
         }
 
         eventsPayload.push({
           title: commonTitle,
-          location: commonLoc,
+          location: locVal,
           description: commonDesc,
           date: dateVal,
           startTime: sTime,
@@ -720,7 +924,7 @@
       }
 
       var regOpen = document.getElementById('regOpenDateTime').value.trim();
-      
+
       var payload = {
         calendarId: calendarId,
         events: eventsPayload,
@@ -759,14 +963,14 @@
       document.getElementById('inputView').classList.add('hidden');
       document.getElementById('previewView').classList.add('hidden');
       document.getElementById('calendarCard').classList.add('hidden');
-      
+
       var msg = `Added ${result.createdCount} event(s) to the calendar.`;
       if (result.bookingCreated) {
         msg += " A booking reminder was also created.";
       }
-      
+
       document.getElementById('successMessage').innerText = msg;
-      
+
       var evList = document.getElementById('createdEventsList');
       evList.innerHTML = '';
       result.events.forEach(function(ev) {
@@ -780,26 +984,26 @@
         row.style.display = 'flex';
         row.style.justifyContent = 'space-between';
         row.style.alignItems = 'center';
-        
+
         var displayTime = (ev.startTime || '').substring(0, 5);
         var linkHref = ev.url || '#';
-        
+
         row.innerHTML = `
           <a href="${linkHref}" target="_blank" style="color: #1a73e8; text-decoration: underline; font-weight: bold;">📅 ${escapeHtml(ev.title)} (${ev.date || ev.startDate} ${displayTime}) &raquo;</a>
           <span style="color: #137333; font-weight: bold; font-size: 11px;">Saved</span>
         `;
         evList.appendChild(row);
       });
-      
+
       document.getElementById('successView').classList.remove('hidden');
       scrollToTop();
     }
 
     function showFallback(result, originalPayload) {
       document.getElementById('previewView').classList.add('hidden');
-      
+
       document.getElementById('fallbackErrorDesc').innerText = result.message || "An unexpected error occurred.";
-      
+
       var logObj = {
         error: result.message,
         payloadSent: originalPayload,
@@ -809,7 +1013,7 @@
 
       var linkContainer = document.getElementById('gcalTemplateLinks');
       linkContainer.innerHTML = '';
-      
+
       originalPayload.events.forEach(function(ev, idx) {
         var url = generateGoogleCalendarUrl(ev);
         var li = document.createElement('li');
@@ -830,11 +1034,11 @@
       var dateVal = (ev.date || ev.startDate || '').replace(/-/g, '');
       var sTime = (ev.startTime || '12:00').substring(0, 5).replace(/:/g, '') + '00';
       var eTime = (ev.endTime || '13:00').substring(0, 5).replace(/:/g, '') + '00';
-      
-      return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + title + 
-             "&dates=" + dateVal + "T" + sTime + "/" + dateVal + "T" + eTime + 
+
+      return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + title +
+             "&dates=" + dateVal + "T" + sTime + "/" + dateVal + "T" + eTime +
              "&ctz=Europe/Berlin" +
-             "&details=" + desc + 
+             "&details=" + desc +
              "&location=" + loc;
     }
 
@@ -847,7 +1051,7 @@
         var dateVal = (ev.date || ev.startDate || '').replace(/-/g, '');
         var sTime = (ev.startTime || '12:00').substring(0, 5).replace(/:/g, '') + '00';
         var eTime = (ev.endTime || '13:00').substring(0, 5).replace(/:/g, '') + '00';
-        
+
         icsContent += "BEGIN:VEVENT\r\n";
         icsContent += "SUMMARY:" + (ev.title || '').replace(/,/g, '\\,') + "\r\n";
         icsContent += "DESCRIPTION:" + (ev.description || '').replace(/\n/g, '\\n').replace(/,/g, '\\,') + "\r\n";
@@ -857,7 +1061,7 @@
         icsContent += "END:VEVENT\r\n";
       });
       icsContent += "END:VCALENDAR\r\n";
-      
+
       var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
       var link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
@@ -878,6 +1082,8 @@
       document.getElementById('eventUrl').value = '';
       document.getElementById('eventText').value = '';
       parsedPayload = null;
+      clearMapMarkers();
+      document.getElementById('mapPreviewContainer').classList.add('hidden');
     }
 
     function escapeHtml(text) {
